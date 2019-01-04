@@ -1,0 +1,69 @@
+\documentclass[11pt]{article}
+%Gummi|065|=)
+\title{\textbf{Proof-Directed Decompilation of EVM Assembly}}
+\author{Luke Horgan\\Robleh Ali}
+\date{}
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+Ethereum is a widely used blockchain-based distributed computing protocol.  Programs designed to run on an Ethereum network must target the Ethereum Virtual Machine, or EVM.  Many languages compile to EVM byte code, the most popular by far being Solidity, with others like Vyper and Flint trailing behind.
+
+Programs targeting the EVM are commonly called smart contracts because they are used to define the conditions under which a unit of virtual currency called eth may be transferred between various accounts, the account construct being fundamental to the Ethereum architecture.  Smart contracts have found myriad applications.  They may, for instance, be used to create tokens, which are in essence supplementary currencies that are issued atop eth.  The so-called ERC-20 token contract is one of the most widely deployed contracts on the main Ethereum network.  Other novel applications include the CryptoKitties web game (itself an ERC-20 derivative) and the controversial DAO (Decentralized Autonomous Organization).
+
+Ethereum faces many problems as its popularity continues to surge, chief amongst them the intertwined issues of centralization, scalability, and security.  CryptoKitties, intended as a simple diversionary game, brought the network screeching to a halt at its peak in late 2017.  Each computer on the network must verify each contract, which can lead to serious congestion when contracts are computationally intensive or rapidly submitted for execution.  The DAO, or more properly its failure, poses perhaps a greater existential risk to Ethereum.  Conceived as an ambitious decentralized venture capital fund, a bug in its smart contract was exploited to funnel a large minority of its funds  into an attacker’s account.
+
+[Give background on the technical nature of the attack.]
+
+Philosophical quandaries notwithstanding, this begs the question: How can such an attack be reliably prevented in the future if it’s so easy to write bugs into smart contracts.  One potential answer lies in formal verification of smart contract code.  Computerized theorem provers have been used to great effect to automatically demonstrate many complex properties of machine code.  The correctness of the popular distributed consensus algorithm Raft, for instance, has been demonstrated using [language].
+
+Much previous work has been done on the use of formal verification techniques to uncover security vulnerabilities in deployed Ethereum code.  Yoichi Hirai at the Ethereum foundation used Isabelle to formally define the Ethereum Virtual Machine in a high level language that can be transpiled to support a number of common formal verification environments.  He was able to use his creation to find vulnerabilities in many existing contracts, as well as to tease out subtle differences between various EVM implementations and the reference “yellow paper,” as well as between each other.
+
+Bhargavan et al. at Microsoft research took a different approach.  Instead of formally defining the EVM, they developed a method to translate macro-constructs of Solidity code to F*, an ML-inspired general purpose theorem prover.  This enabled them to automatically prove some impressively sophisticated security properties of certain contracts.  However, their method’s applicability is limited to a small subset of non-looping contracts for which the uncompiled Solidity code is available, representing an extreme minority of deployed Ethereum smart contracts.
+
+Sophisticated decompilers, such as Mythril and [name] exist which take EVM byte code and translate it back to Solidity.  They come with their own limitations, however.  First and foremost, the contract must have been written in Solidity in the first place.  Additionally, as Solidity code is inherently difficult to write securely and to verify, it is not an ideal target for formal verification, even with useful tools such as those provided by Bhargavan et al.
+
+We propose a different approach, based on the work of Atusushi Ohori et al.  They demonstrate that a simple stack-based language they develop, called SLAM, has a one-to-one correspondence with the standard typed lambda calculus.  That is, SLAM byte code may be decompiled into lambda terms and vice versa.  In a subsequent paper, they apply this method to a subset of the Java Virtual Machine (JVM) to recover the high-level logical structure of Java source from only the raw byte code it has been compile dto.  In this paper, we develop a similar method for EVM byte code, and use it to translate Ethereum contracts to ACL2, where various formal verification techniques may be easily applied.
+
+\section{Methodology}
+In their follow-up paper, Ohori et al. decompile a simplified subset of Java bytecode they call $JAL^0$, for Java Assembly Language.  Like real JVM byte code, this language is stack based.  Each operation pushes an element onto the stack or pops one off, aside from the \verb|return| instruction, which simply returns the element on top of the stack without removing it.
+
+The EVM is actually quite similar to the JVM in one very important way: it is also completely stack based.  In fact, Ethereum byte code looks very much like Java byte code.  The vocabulary is different, but the essence is similar.  Consequently, Ohori's method may be adapted to work with the EVM.
+
+The syntax of $JAL^0$ is as follows:
+
+\[ K ::= \{l: B, ..., l: B\} \]
+\[ B ::= \verb|ireturn| \:|\: \verb|goto|\:l\: |\: I;B  \]
+\[I ::= \verb|iconst|\:n \: |\: \verb pop \:| \: \verb dup \:| \: \verb swap \:| \: \verb iload \: i \:| \: \verb istore i \:| \: \verb iadd \:| \: \verb ifzero \:l \:|\]
+
+[Careful explanation of op codes should go here, but the meanings are fairly easy to infer.]
+
+The target of the $JAL^0$ decompliation procedure is a typed lambda calculus the authors refer to as $\lambda^{rec}$, which is defined as follows:
+
+\[ \tau ::= \verb|int| \:|\: \tau \rightarrow \tau \]
+\[M ::= n \: |\: x \:| \: \lambda x.M \:| \: M M \:| \: \verb ifzero \:M\: \verb then \:M \: \verb else \:M \:| \: \]
+\[ \verb iadd (M,N) \: | \: \verb rec \{x=M,...,x=M\}\]
+
+[Sketch correctness argument.  Refer to paper.]
+
+Notice that addition is represented as a fundamental type.  In lambda calculus, everything is a type.  Formally, \verb|iadd| is a function $\verb|integer| \rightarrow \verb|integer| $.  The translation steps from $JAL^0$ to $\lambda ^{rec}$ are, illustrated in [figure x] relatively straightforward.  Clearly, the \verb|iadd| op code corresponds with the \verb|iadd| function, \verb|swap| may be interpeted as switching the order of items in the proof context, which trivially preserves type (especially since order is irrelevant in a set).  However, the EVM also relies on a number of op codes that have no direct analogue in $\lambda ^{rec} $.
+
+To overcome this problem, we observe that certain op codes may be derived from those which we have already defined.  For instance, multiplication, which the EVM natively supports, can be considered as repeated addition.
+
+$$ N*M=\sum _{i=1}^M N $$
+
+Further, any boolean expression may be presented, however clumsily, in terms of \verb|ifzero|.  It is possible, therefore, to express division in terms of repeated addition as well.  Adding the divisor to itself until $R$ times, until we exceed the dividend, will yield the quotion $Q=R-1$.  In the following pages, we present algorithms for representing various EVM op codes in terms of $JAL ^0$ op codes.  In most cases, this is simply so that we may rely on the thorough proofs of correctness Ohari et al. have already completed.  In practice, we introduce several new op codes and corresponding types.  This increases clarity and efficiency without compromising correctness.  Some of the new op codes are shown below.  For complete implemenation details, please refer to our sample implemenation [code link].
+
+\[ \verb imul (M,N) \:|\: \verb idiv (M, N) \:|\: \verb imod(M,N) \]
+
+[There will be others, but I am still working them out.]
+
+\section{Discussion}
+[Pending results.]
+
+\section{Conclusion}
+[Also pending results.]
+
+\end{document}
