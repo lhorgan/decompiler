@@ -158,9 +158,26 @@
                     (true-listp (i_mod delta))
                     (integerp (first (i_mod delta))))
   (cons (mod (first delta) (second delta)) (i_pop (i_pop delta)))
+  )
+
+(defunc i_store (delta mu)
+  :input-contract (and
+                   (true-listp delta)
+                   (lenp delta 2)
+                   (true-listp mu)
+                   (integerp (first delta))
+                   )
+  :output-contract (and
+                    (equal (first delta) (first (first (second (i_store delta mu)))))
+                    (equal (second delta) (second (first (second (i_store delta mu)))))
+                    (equal (len (first (i_store delta mu))) (- (len delta) 2))
+                    )
+  (list (i_pop (i_pop delta)) 
+        (cons (list (first delta) (second delta)) mu))
   )#|ACL2s-ToDo-Line|#
 
 
 #|*********************************************************************|#
+
 
 
