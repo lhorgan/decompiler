@@ -174,8 +174,56 @@
                     )
   (list (i_pop (i_pop delta)) 
         (cons (list (first delta) (second delta)) mu))
+  )
+
+(defunc is_a_list (list)
+  :input-contract (true-listp list)
+  :output-contract (booleanp (is_a_list list))
+  (cond ((equal list nil) T)
+        ((and (true-listp (first list)) (atom-listp (first list)) (equal (len (first list)) 2) (is_a_list (rest list))) T)
+        (T nil))
+  )
+
+(defunc has_key (list key)
+  :input-contract (and (true-listp list) (is_a_list list))
+  :output-contract (booleanp (has_key list key))
+  (if (equal list nil) nil (or (equal (first (first list)) key) (has_key (rest list) key)))
+  )
+
+(defunc still_a_list (list)
+  :input-contract (and (true-listp list) (is_a_list list) (consp list))
+  :output-contract (is_a_list (still_a_list list))
+  (rest list)
   )#|ACL2s-ToDo-Line|#
 
+
+(defunc remove_key (list key)
+  :input-contract (and (atom key) (true-listp list) (is_a_list list))
+  :output-contract (is_a_list (remove_key list key))
+  :function-contract-hints (("Goal"
+           :induct T))
+  (cond ((equal list nil) list)
+        ((equal (first (first list)) key) (remove_key (rest list) key))
+        (T (cons (first list) (remove_key (still_a_list list) key)))
+        )
+  )
+
+(defunc add_to_a_list (entry list)
+  :input-contract (and (true-listp entry) (equal (len entry) 2) (is_a_list entry) (true-listp list) (is_a_list list))
+  :output-contract (and (true-listp (add_to_a_list entry list)) (is_a_list (add_to_a_list entry list)))
+  (append entry list)
+  )
+
+(defunc i_load (delta mu)
+  :input-contract (and
+                   (true-listp delta)
+                   (lenp delta 2)
+                   )
+  :output-contract (and
+                    ()
+                    ()
+                    )
+  )
 
 #|*********************************************************************|#
 
