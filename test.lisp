@@ -27,6 +27,8 @@
 
 ; ******************* END INITIALIZATION FOR ACL2s MODE ******************* ;
 ;$ACL2s-SMode$;ACL2s
+(include-book "std/alists/top" :dir :system)
+
 #|(defmacro lenp (delta n)
   (and (natp n) (listp delta) (>= (len delta) n))
   )|#
@@ -184,7 +186,7 @@
         (T nil))
   )
 
-(defunc has_key (list key)
+#|(defunc has_key (list key)
   :input-contract (and (true-listp list) (is_a_list list))
   :output-contract (booleanp (has_key list key))
   (if (equal list nil) nil (or (equal (first (first list)) key) (has_key (rest list) key)))
@@ -194,38 +196,60 @@
   :input-contract (and (true-listp list) (is_a_list list) (consp list))
   :output-contract (is_a_list (still_a_list list))
   (rest list)
-  )#|ACL2s-ToDo-Line|#
-
-
-(defunc remove_key (list key)
-  :input-contract (and (atom key) (true-listp list) (is_a_list list))
-  :output-contract (is_a_list (remove_key list key))
-  :function-contract-hints (("Goal"
-           :induct T))
-  (cond ((equal list nil) list)
-        ((equal (first (first list)) key) (remove_key (rest list) key))
-        (T (cons (first list) (remove_key (still_a_list list) key)))
-        )
   )
 
 (defunc add_to_a_list (entry list)
   :input-contract (and (true-listp entry) (equal (len entry) 2) (is_a_list entry) (true-listp list) (is_a_list list))
   :output-contract (and (true-listp (add_to_a_list entry list)) (is_a_list (add_to_a_list entry list)))
   (append entry list)
+  )|#
+
+#|(defunc integer-alistp (list)
+  :input-contract (and (true-listp list) (is_a_list list))
+  :output-contract (booleanp (integer-alistp list))
+  (cond ((equal list nil) T)
+        ((not (and (integerp (first (first list))) (integerp (second (first list))))) nil)
+        (T (integer-alistp (rest list)))
+        )
+  )|#
+  
+(defunc get_val (mu key)
+  :input-contract (and (true-listp mu)  (is_a_list mu) (integerp key))
+  :output-contract (atom key)
+  (cond ((equal mu nil) nil)
+        ((equal (first (first mu)) key) (second (first mu)))
+        (T (get_val (rest mu) key))
+        )
   )
+
+#|((MU '((-1/4 -1) (NIL NIL))) (DELTA '(-11 NIL)))|#
+
+#|(defunc make_list (thing)
+  :input-contract T
+  :output-contract (listp (make_list thing))
+  (if (listp thing) thing '(thing))
+  )|#
+
+(defun x4y4 (x y)
+  (let ((x2 (* x x))            ; Let x2 be x^2 and, ``simultaneously,''
+        (y2 (* y y)))           ; let y2 be y^2.
+    (+ (* x2 x2)                ; Compute x^4 by squaring x^2 
+       (* y2 y2))))            ; and add it y^4 computed similarly.
+
 
 (defunc i_load (delta mu)
   :input-contract (and
+                   (lenp mu 1)
+                   (true-listp mu)
+                   (is_a_list mu)
                    (true-listp delta)
-                   (lenp delta 2)
+                   (lenp delta 1)
+                   (integerp (first delta))
                    )
-  :output-contract (and
-                    ()
-                    ()
-                    )
-  )
-
-#|*********************************************************************|#
-
-
+  :output-contract (true-listp (i_load delta mu))
+  ;(let ((thingie (if (true-listp (first delta)) (first delta) '(first delta))))
+  (let ((val (get_val mu (first delta))))
+  (append (if (true-listp val) val (list val)) (i_pop delta)))
+   ;(list mu (get_val mu (first delta)) (i_pop delta))
+  )#|ACL2s-ToDo-Line|#
 
