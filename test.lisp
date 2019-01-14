@@ -27,7 +27,7 @@
 
 ; ******************* END INITIALIZATION FOR ACL2s MODE ******************* ;
 ;$ACL2s-SMode$;ACL2s
-(include-book "std/alists/top" :dir :system)
+;(include-book "std/alists/top" :dir :system)
 
 #|(defmacro lenp (delta n)
   (and (natp n) (listp delta) (>= (len delta) n))
