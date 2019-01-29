@@ -96,7 +96,7 @@
   )
 
 (defmacro if_zero (delta a f1 f2)
-  (list (if (equal a 0) f1 f2) delta)
+  (list 'cons (list 'if (list 'equal a 0) f1 f2) delta)
   )
 
 
@@ -209,8 +209,7 @@
         ((equal (first (first mu)) key) (second (first mu)))
         (T (get_val (rest mu) key))
         )
-  )#|ACL2s-ToDo-Line|#
-
+  )
 
 (defunc i_load (delta mu)
   :input-contract (and
@@ -226,3 +225,346 @@
   (let ((val (get_val mu (first delta))))
   (append (if (true-listp val) val (list val)) (i_pop delta)))
   )
+
+(defunc i_lt (delta)
+  :input-contract (and (true-listp delta) (lenp delta 2) (tau-listp delta) (integerp (first delta)) (integerp (second delta)))
+  :output-contract (and (tau-listp (i_lt delta)) (or (equal (first (i_lt delta)) 1) (equal (first (i_lt delta)) 0)))
+  (cons (if (< (first delta) (second delta)) 1 0) (i_pop (i_pop delta)))
+  )
+
+(defunc i_gt (delta)
+  :input-contract (and (true-listp delta) (lenp delta 2) (tau-listp delta) (integerp (first delta)) (integerp (second delta)))
+  :output-contract (and (tau-listp (i_lt delta)) (or (equal (first (i_lt delta)) 1) (equal (first (i_lt delta)) 0)))
+  (cons (if (> (first delta) (second delta)) 1 0) (i_pop (i_pop delta)))
+  )
+
+(defunc i_equal (delta)
+  :input-contract (and (true-listp delta) (lenp delta 2) (tau-listp delta) (integerp (first delta)) (integerp (second delta)))
+  :output-contract (and (tau-listp (i_lt delta)) (or (equal (first (i_lt delta)) 1) (equal (first (i_lt delta)) 0)))
+  (cons (if (equal (first delta) (second delta)) 1 0) (i_pop (i_pop delta)))
+  )
+
+(defunc tau-boolp (num)
+  :input-contract (integerp num)
+  :output-contract (booleanp (tau-boolp num))
+  (or (= num 1) (= num 0))
+  )
+
+#| we don't need BYTES in the BODY of the function
+but ACL2 complains if we don't have it, so we
+cons it and then ignore it |#
+(defunc i_push (bytes val delta)
+  :input-contract (and (integerp val)
+                       (integerp bytes)
+                       (>= bytes 1) 
+                       (<= bytes 32) 
+                       (>= val 0) 
+                       (< val (expt 2 bytes))
+                       (true-listp delta)
+                       (tau-listp delta))
+  :output-contract (tau-listp (i_push bytes val delta))
+  #|(declare (ignore bytes))|#
+  (cons val (rest (cons bytes delta)))
+  )
+
+(defunc fetch (delta ind)
+  :input-contract (and (integerp ind)
+                       (>= ind 1)
+                       (<= ind 16)
+                       (true-listp delta)
+                       (tau-listp delta)
+                       (lenp delta ind))
+  :output-contract (tau-listp (fetch delta ind))
+  (if (equal ind 1) (first delta) (fetch (rest delta) (- ind 1)))
+  )
+
+(defunc i_dup_* (ind delta)
+  :input-contract (and (true-listp delta)
+                       (tau-listp delta)
+                       (integerp ind)
+                       (>= ind 1)
+                       (<= ind 16)
+                       (lenp delta ind))
+  :output-contract (tau-listp (i_dup_* ind delta))
+  (cons (fetch delta ind) delta)
+  )
+
+(defthm rest_tau
+  (implies (and (true-listp delta)
+                (tau-listp x)
+                (>= (len x) 1))
+           (tau-listp (rest x)))
+  )
+
+(defthm grk
+  (implies (and (true-listp x) (>= (len x) 1)) (true-listp (rest x)))
+  )
+
+#|(skip-proofs|#
+#|(defunc i_set_* (delta ind val)
+  :input-contract (and (tau-listp val)
+                       (integerp ind)
+                       (>= ind 1)
+                       (<= ind 16)
+                       (true-listp delta)
+                       (tau-listp delta)
+                       (lenp delta ind))
+  :output-contract (tau-listp (i_set_* delta ind val))
+  :body-contracts-hints (("Goal"
+           :do-not-induct nil))
+  (if (equal ind 1)
+    (cons val (rest delta))
+    (cons (first delta) (i_set_* (rest delta) (- ind 1) val))
+  ))|#
+#|)|#
+
+(defthm duh
+  (implies (and (true-listp x)
+                (tau-listp (first x))
+                (tau-listp (rest x))
+                )
+           (tau-listp x)))
+
+(defthm duh2
+  (implies (and (true-listp x)
+                (tau-listp x)
+                (posp ind)
+                (>= (len x) ind)
+                )
+           (equal (set-difference$ (subseq x 0 (- ind 1)) x) nil)
+           )
+  )
+
+#|(defthm duh3
+  (implies (and (true-listp x)
+                (tau-listp x)
+                (posp ind)
+                (>= (len x) ind)
+                )
+           (implies (set-difference$ (subseq x 0 (- ind 1)) x)
+                    (tau-listp (nth (- ind 1) x))
+                    )
+  )
+  )|#
+
+#|(defthm duh3
+  (implies (and (true-listp x)
+                (tau-listp x)
+                (posp ind)
+                (>= (len x) ind)
+                )
+           (tau-listp (nth (- ind 1) x))
+  )
+  )|#
+
+#|(defthm grk2
+  (implies (and (true-listp x)
+               (tau-listp x)
+               (posp i)
+               (>= (len x) i))     
+          (tau-listp (subseq x 0 i))
+  ))|#
+
+(defthm erg
+  (implies (and (true-listp x)
+                (tau-listp x)
+                (tau-listp y)
+                )
+           (tau-listp (cons y x))))
+
+(defthm erg2
+  (implies (and (true-listp x)
+                (tau-listp x)
+                )
+           (tau-listp (rest x))))
+
+(defthm grk3
+  (implies (and (true-listp x)
+                (consp x)
+                (tau-listp x)
+                )
+           (tau-listp (rest x))))
+
+(defunc i_remove_first (delta n)
+  :input-contract (and (true-listp delta)
+                       (tau-listp delta)
+                       (natp n)
+                       (<= n (len delta)))
+  :output-contract (tau-listp (i_remove_first delta n))
+  (cond ((= n 0) delta)
+        (T (i_remove_first (rest delta) (- n 1))))
+        
+  )
+
+(defthm nth-tau-list-induct
+  (implies (and (true-listp x)
+                (tau-listp x)
+                (natp n)
+                (= n 0))
+           (= (first x) (nth n x))
+  )
+  )
+
+(defthm nth-tau-list-induct2
+  (implies (and (true-listp x)
+                (tau-listp x))
+           (tau-listp (rest x))))#|ACL2s-ToDo-Line|#
+
+#|defunc blah (delta1 delta2 n)
+  :input-contract (and (true-listp delta1)
+                       (true-listp delta2)
+                       (tau-listp delta1)
+                       (tau-listp delta2)
+                       (natp n)
+                       )
+  :output-contract 
+  (cond ((= n (len delta1)) (and (tau-listp (first delta2)) (tau-listp (nth n delta1))))
+        (T (and (tau-listp (first delta2)) (tau-listp (nth n delta1)) (blah delta1 (rest delta2) (+ n 1))))
+        )
+  )|#
+
+#|(defunc messy-swap (delta n)
+  :input-contract (and (true-listp delta)
+                       (tau-listp delta)
+                       (natp n)
+                       (<= n (len delta)))
+  (cons
+  )
+
+(defunc yippy (x)
+  :input-contract
+  :output-contract
+  (let ((n (
+  )|#
+
+
+
+(defunc grk7 (a)
+  :input-contract (and T
+                       (tau-listp a))
+  :output-contract (tau-listp (grk7 a))
+  (cond ((equal a nil) a)
+        ((integerp a) a)
+        ((true-listp a) (cons (first a) (grk7 (rest a))))
+        (T nil)
+        )
+  )
+
+;(skip-proofs
+(defunc messy-swap (delta #|n curr val)|#)
+  :input-contract (and (true-listp delta)
+                       (tau-listp delta)
+                       ;(tau-listp val)
+                       ;(posp n)
+                       ;(posp curr)
+                       ;(<= n (len delta))
+                       #|(<= curr n)|#
+                       )
+  :output-contract (tau-listp (messy-swap delta #|n curr val|#))
+  (cond ;((equal curr n) (cons (first delta) (messy-swap (rest delta) n (+ curr 1) val)))
+        ((equal delta nil) nil)
+        (T (cons (first delta) (messy-swap (rest delta) #|n (+ curr 1) val))))|#))))
+         
+  )
+;)
+
+(defaxiom tau-list-fun
+  (implies (and (true-listp x)
+                (tau-listp x)
+                (natp n)
+                (< n (len x)))
+           (tau-listp (nth n x)))
+  )
+
+(defthm nth-tau-list-induct3
+  (implies (and (true-listp x)
+                (tau-listp x)
+                (= n 0))
+           (blah x x n)))
+           
+(defthm nth-tau-list-induct4
+  (implies (and (true-listp x)
+                (tau-listp x)
+                (natp n)
+                (= n 2)
+           (tau-listp (nth (- n 1) x))))
+           
+
+(defthm grk4
+  (implies (and (true-listp x)
+                (tau-listp x)
+                )
+           (tau-listp (reverse x))))
+
+(defunc i_remove_last (delta)
+  :input-contract (and (true-listp delta)
+                       (tau-listp delta)
+                       #|(natp n)
+                       (<= n (len delta))|#)
+  :output-contract (tau-listp (i_remove_last delta))
+  (reverse delta)
+  )
+
+
+#|(defunc i_remove_first (delta n)
+  :input-contract (and (true-listp delta)
+                       (tau-listp delta)
+                       (posp n)
+                       (<= n (len delta)))
+  :output-contract (tau-listp (i_remove first delta n))
+  (i_remove_last (reverse delta) n)
+  )
+
+(defunc i_subseq (delta end curr)
+  :input-contract (and (true-listp delta)
+                       (tau-listp delta)
+                       (natp end)
+                       (natp curr)
+                       (>= end 1)
+                       (<= end 16)
+                       (>= curr 1)
+                       (<= curr 16)
+                       (lenp delta end)
+                       )
+  :output-contract (tau-listp (i_subseq delta end curr))
+  (if (> curr end) nil (cons (fetch delta curr) (i_subseq delta end (+ curr 1))))
+  )
+
+(defthm erg3
+  (and (true-listp x)
+                (tau-listp x)
+                (tau-listp y)
+                )
+  
+(skip-proofs
+(defunc i_insert_* (delta val ind)
+  :input-contract (and (true-listp delta)
+                       (tau-listp delta)
+                       (tau-listp val)
+                       (integerp ind)
+                       (>= ind 0)
+                       (lenp delta ind))
+  :output-contract (tau-listp (i_insert_* delta val ind))
+  (if (= ind 0)
+    (rest delta)
+    (cons (first delta) (i_insert_* (rest delta) val (- ind 1)))
+    )
+  )
+)
+
+(defunc i_swap_* (ind delta)
+  :input-contract (and (true-listp delta)
+                       (tau-listp delta)
+                       (integerp ind)
+                       (>= ind 1)
+                       (<= ind 16)
+                       (lenp delta 2)
+                       (lenp delta ind))
+  :output-contract (true-listp (i_swap_* ind delta))
+  #|(cons (nth (- ind 1) delta)
+             (rest (cons (cons (subseq delta 0 (- ind 1)) (first delta)) (subseq delta ind (len delta))))
+             )|#
+  (subseq delta 0 ind)
+  )|#
+
+(include-book "std/strings/top" :dir :system)
