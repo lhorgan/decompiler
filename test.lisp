@@ -27,6 +27,10 @@
 
 ; ******************* END INITIALIZATION FOR ACL2s MODE ******************* ;
 ;$ACL2s-SMode$;ACL2s
+(include-book "std/lists/list-defuns" :dir :system)
+(include-book "std/strings/decimal" :dir :system)
+(include-book "std/alists/top" :dir :system)
+
 #|(defun tau-listp (tl)
   (cond ((integerp tl) T)
         ((equal tl nil) T)
@@ -326,21 +330,114 @@ cons it and then ignore it |#
 
 (defttag t)
 
-(include-book "std/lists/list-defuns" :dir :system)#|ACL2s-ToDo-Line|#
+(defun foo (state)
+  (declare (xargs :stobjs state))
+  (mv 3 state))
 
-(include-book "std/strings/decimal" :dir :system)
-(include-book "std/alists/top" :dir :system)
+(defun update-list (obj current-list)
+  (append (list obj) current-list))
 
-(std/alists 5)
+#|(skip-proofs
+ (defun process-file1 (current-list channel state)
+    (mv-let (eofp obj state)
+            (read-object channel state)
+            (cond
+             (eofp (mv current-list state))
+             (t (process-file1 (update-list obj current-list)
+                               channel state)))))
+ )
 
-(defunc sha3 (val index)
+(skip-proofs
+(defun process-file (filename state)
+    (mv-let
+     (channel state)
+     (open-input-channel filename :object state)
+     (mv-let (result state)
+             (process-file1 nil channel state) ;see below
+             (let ((state (close-input-channel channel state)))
+               (mv result state)))))
+)|#
+
+(include-book "std/io/top" :dir :system)
+
+(defun
+     read-file-lines (filename state)
+     "Returns (MV ERRMSG/LINES STATE)"
+     (declare (xargs :guard (stringp filename)
+                     :stobjs state))
+     (b* ((filename (mbe :logic (if (stringp filename) filename "")
+                         :exec filename))
+          ((mv channel state)
+           (open-input-channel filename
+                               :byte state))
+          ((unless channel)
+           (mv (concatenate 'string
+                            "Error opening file " filename)
+               state))
+          ((mv data state)
+           (acl2::read-file-lines-aux nil nil channel state))
+          (state (close-input-channel channel state)))
+         (mv (reverse data) state)))
+
+(defthm
+   state-p1-of-read-file-lines
+   (implies (force (state-p1 state))
+            (state-p1 (mv-nth 1 (read-file-lines filename state)))))
+
+(defthm
+  string-listp-of-read-file-lines
+  (equal
+       (string-listp (mv-nth 0 (read-file-lines filename state)))
+       (not (stringp (mv-nth 0 (read-file-lines filename state))))))
+
+
+(defun foo (state)
+  (declare (xargs :stobjs state))
+  (mv 3 state))
+
+(skip-proofs
+(defun sha3-helper (state)
+  (declare (xargs :stobjs state))
+  (mv-let (erp val state)
+                      (sys-call+ "ls" '("-l" "./") state)
+                      (cond (erp (mv erp val state))
+                            (t 
+                             (pprogn (f-put-global 'grkish val state)
+                                     (value '(value-triple nil))))))
+  )
+  )
+
+(skip-proofs
+(defun sha3-wrapper (state)
+  (declare (xargs :stobjs state))
+  (@ grkish)
+  )
+)#|ACL2s-ToDo-Line|#
+
+
+(er-let* ((x1 (f1 state))
+          (x2 (f2 x1 state)))
+  (value (cons x1 x2)))
+
+(defun sha3 (state val index)
+  (cons (sys-call "python" (cons "/home/luke/Documents/evmthing/k.py" (cons "hash" (cons (str::natstr val) (cons (str::natstr index) nil)))))
+        (cons (sys-call-status state) nil))
+  )
+
+
+(make-event
+ (pprogn (f-put-global 'my-world-length (length (w state)) state)
+         (value '(value-triple nil))))
+
+#|(defunc sha3 (state val index)
   :input-contract (and (natp val)
                        (natp index)
                        (>= index 0)
                        (< index 256))
-  :output-contract T
-  (sys-call "python" (cons "/home/luke/Documents/evmthing/k.py" (cons "hash" (cons val (cons index nil)))))
-  )
+  :output-contract *
+  (cons (sys-call "python" (cons "/home/luke/Documents/evmthing/k.py" (cons "hash" (cons (str::natstr val) (cons (str::natstr index) nil)))))
+        (cons (sys-call-status state) nil))
+  )|#
 
 
-(cons "/home/luke/Documents/evmthing/k.py" 
+;(cons "/home/luke/Documents/evmthing/k.py" 
