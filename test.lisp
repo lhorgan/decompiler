@@ -308,8 +308,7 @@ cons it and then ignore it |#
 
 (defthm grk
   (implies (and (true-listp x) (>= (len x) 1)) (true-listp (rest x)))
-  )#|ACL2s-ToDo-Line|#
-
+  )
 
 (defunc i_swap_* (ind delta)
   :input-contract (and (integer-listp delta)
@@ -324,3 +323,24 @@ cons it and then ignore it |#
              (if (< (len delta) (+ ind 2)) nil (subseq delta (+ ind 2) (len delta)))
              ))
   )
+
+(defttag t)
+
+(include-book "std/lists/list-defuns" :dir :system)#|ACL2s-ToDo-Line|#
+
+(include-book "std/strings/decimal" :dir :system)
+(include-book "std/alists/top" :dir :system)
+
+(std/alists 5)
+
+(defunc sha3 (val index)
+  :input-contract (and (natp val)
+                       (natp index)
+                       (>= index 0)
+                       (< index 256))
+  :output-contract T
+  (sys-call "python" (cons "/home/luke/Documents/evmthing/k.py" (cons "hash" (cons val (cons index nil)))))
+  )
+
+
+(cons "/home/luke/Documents/evmthing/k.py" 
