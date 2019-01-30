@@ -109,9 +109,9 @@
   (cons n delta)
   )
 
-(defmacro if_zero (delta a f1 f2)
-  (list 'cons (list 'if (list 'equal a 0) f1 f2) delta)
-  )
+#|(defmacro if_zero (delta f1 f2)
+  (list 'cons (list 'if (list 'equal (first delta) 0) f1 f2) delta)
+  )|#
 
 
 (defmacro goto (delta f)
@@ -123,6 +123,28 @@
   :output-contract (and (true-listp (i_pop delta)) (tau-listp delta))
   (rest delta)
   )
+
+#|(defmacro if_zero (delta f1 f2)
+  (list 'rest delta
+  )|#
+
+(defunc if_zero (delta f1 f2)
+  :input-contract (and (tau-listp delta)
+                       (lenp delta 1)
+                       (natp f1)
+                       (natp f2))
+  :output-contract (and (true-listp (if_zero delta f1 f2))
+                        (equal (len (if_zero delta f1 f2)) 2)
+                        (tau-listp (first (if_zero delta f1 f2)))
+                        (or (equal (second (if_zero delta f1 f2)) f1)
+                            (equal (second (if_zero delta f1 f2)) f2)))
+  (cons (rest delta) (cons (if (equal (first delta) 0) f1 f2) nil))
+  )
+
+
+(let* ((x1 5)
+       (x2 x1))
+  x2)
 
 (defunc i_add (delta)
   :input-contract (and (lenp delta 2) (tau-listp delta) (integerp (first delta)) (integerp (second delta)))
@@ -238,7 +260,13 @@
   :output-contract (true-listp (i_load delta mu))
   (let ((val (get_val mu (first delta))))
   (append (if (true-listp val) val (list val)) (i_pop delta)))
-  )
+  )#|ACL2s-ToDo-Line|#
+
+
+(let* ((x1 5)
+       (x2 (let* ((x3 x1)) x3)))
+  x2)
+
 
 (defunc i_lt (delta)
   :input-contract (and (true-listp delta) (lenp delta 2) (tau-listp delta) (integerp (first delta)) (integerp (second delta)))
@@ -412,8 +440,7 @@ cons it and then ignore it |#
   (declare (xargs :stobjs state))
   (@ grkish)
   )
-)#|ACL2s-ToDo-Line|#
-
+)
 
 (er-let* ((x1 (f1 state))
           (x2 (f2 x1 state)))
